@@ -10,21 +10,11 @@ print_usage() {
     echo "The default behaviour is to commit the files in the staging area"
     echo "with the message \"WIP-<number>\", based on the number of previous WIP-commits"
     echo
-    echo "     -m <msg>                 Appends \": <msg>\" to the commit message"
-    echo "     -r | --rebase            Starts an interactive rebase for all WIP-commits"
+    echo "     -m <msg>             Appends \": <msg>\" to the commit message"
+    echo "     -r | --rebase        Starts an interactive rebase for all latest WIP-commits"
+    echo "     -s | --squash        Squash all latest WIP-commits into the first non-WIP commit"
     echo
-    echo "     -h | --help              This usage screen."
-}
-
-wip_rebase() {
-    if [ $line_count -gt 1 ]; then
-        # Disable hooks for this single command
-        git -c core.hooksPath=/dev/null rebase HEAD~$line_count --interactive
-        exit 0
-    else
-        echo "No WIP-commits found!"
-        exit 0
-    fi
+    echo "     -h | --help          This usage screen."
 }
 
 wip_commit() {
@@ -33,7 +23,27 @@ wip_commit() {
 
     # Disable hooks for this single command
     git -c core.hooksPath=/dev/null commit -m "$commit_msg"
-    exit 0
+}
+
+wip_rebase() {
+    if [ $line_count -gt 1 ]; then
+        # Disable hooks for this single command
+        git -c core.hooksPath=/dev/null rebase HEAD~$line_count --interactive
+    else
+        echo "No WIP-commits found!"
+    fi
+}
+
+
+wip_squash() {
+    if [ $line_count -gt 1 ]; then
+        git reset --soft HEAD~$(($line_count-1))
+
+        # Disable hooks for this single command
+        git commit --amend
+    else
+        echo "No WIP-commits found!"
+    fi
 }
 
 # Get first 20 subject lines
@@ -52,6 +62,9 @@ if [ $# -gt 0 ]; then
         --rebase | -r)
             wip_rebase
             ;;
+        --squash | -s)
+            wip_squash
+            ;;
         --help | -h)
             print_usage
             exit 0
@@ -64,3 +77,5 @@ if [ $# -gt 0 ]; then
 else
     wip_commit ""
 fi
+
+exit 0
