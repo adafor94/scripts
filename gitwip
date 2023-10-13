@@ -3,24 +3,25 @@
 set -e # Exit if any command fails
 
 print_usage() {
-    echo "Script for commit or rebasing WIP-commits"
+    echo "Script for committing, interactive rebasing, squashing and amending of WIP-commits"
     echo
-    echo "Usage: gitwip [ -m <msg> | -r ] "
+    echo "Usage: gitwip [ -m <msg> | -r | -s | -a | -h ] "
     echo
     echo "The default behaviour is to commit the files in the staging area"
-    echo "with the message \"WIP-<number>\", based on the number of previous WIP-commits"
+    echo "with the message \"WIP-<number>\", based on the number of previous WIP-commits."
+    echo "Commit, rebase and amend will temporarily disable any hooks."
     echo
     echo "     -m <msg>             Appends \": <msg>\" to the commit message"
     echo "     -r | --rebase        Starts an interactive rebase for all latest WIP-commits"
     echo "     -s | --squash        Squash all latest WIP-commits into the first non-WIP commit"
+    echo "     -a | --amend         Just a normal amend, but without any hooks"
     echo
-    echo "     -h | --help          This usage screen."
+    echo "     -h | --help          This usage screen"
 }
 
 wip_commit() {
     # Construct commit message
     commit_msg="WIP-$line_count$@"
-
     # Disable hooks for this single command
     git -c core.hooksPath=/dev/null commit -m "$commit_msg"
 }
@@ -34,13 +35,18 @@ wip_rebase() {
     fi
 }
 
-
 wip_squash() {
     if [ $line_count -gt 1 ]; then
         git reset --soft HEAD~$(($line_count-1))
-
-        # Disable hooks for this single command
         git commit --amend
+    else
+        echo "No WIP-commits found!"
+    fi
+}
+
+wip_amend() {
+    if [ $line_count -gt 1 ]; then
+        git -c core.hooksPath=/dev/null commit --amend
     else
         echo "No WIP-commits found!"
     fi
@@ -64,6 +70,9 @@ if [ $# -gt 0 ]; then
             ;;
         --squash | -s)
             wip_squash
+            ;;
+        --amend | -a)
+            wip_amend
             ;;
         --help | -h)
             print_usage
