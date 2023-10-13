@@ -18,7 +18,8 @@ print_usage() {
 
 wip_rebase() {
     if [ $line_count -gt 1 ]; then
-        git rebase HEAD~$line_count --interactive
+        # Disable hooks for this single command
+        git -c core.hooksPath=/dev/null rebase HEAD~$line_count --interactive
         exit 0
     else
         echo "No WIP-commits found!"
@@ -29,7 +30,9 @@ wip_rebase() {
 wip_commit() {
     # Construct commit message
     commit_msg="WIP-$line_count$@"
-    git commit -m "$commit_msg" --no-verify
+
+    # Disable hooks for this single command
+    git -c core.hooksPath=/dev/null commit -m "$commit_msg"
     exit 0
 }
 
