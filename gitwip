@@ -1,0 +1,63 @@
+#!/bin/bash
+
+set -e # Exit if any command fails
+
+print_usage() {
+    echo "Script for commit or rebasing WIP-commits"
+    echo
+    echo "Usage: gitwip [ -m <msg> | -r ] "
+    echo
+    echo "The default behaviour is to commit the files in the staging area"
+    echo "with the message \"WIP-<number>\", based on the number of previous WIP-commits"
+    echo
+    echo "     -m <msg>                 Appends \": <msg>\" to the commit message"
+    echo "     -r | --rebase            Starts an interactive rebase for all WIP-commits"
+    echo
+    echo "     -h | --help              This usage screen."
+}
+
+wip_rebase() {
+    if [ $line_count -gt 1 ]; then
+        git rebase HEAD~$line_count --interactive
+        exit 0
+    else
+        echo "No WIP-commits found!"
+        exit 0
+    fi
+}
+
+wip_commit() {
+    # Construct commit message
+    commit_msg="WIP-$line_count$@"
+    git commit -m "$commit_msg" --no-verify
+    exit 0
+}
+
+# Get first 20 subject lines
+subjects=$(git log --pretty=format:"%s" -n 20)
+
+# Match to the first line that does not start with "WIP" (including first non-WIP line)
+# Count the number of lines
+line_count=$(awk '1;/^[^WIP]/{exit}' <(echo "$subjects") | wc -l )
+
+if [ $# -gt 0 ]; then
+    case $1 in
+        -m)
+            shift 1
+            wip_commit ": $@"
+            ;;
+        --rebase | -r)
+            wip_rebase
+            ;;
+        --help | -h)
+            print_usage
+            exit 0
+            ;;
+        *)
+            print_usage
+            exit 1
+            ;;
+    esac
+else
+    wip_commit ""
+fi
