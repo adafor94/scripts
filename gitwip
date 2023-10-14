@@ -9,7 +9,7 @@ print_usage() {
     echo
     echo "The default behaviour is to commit the files in the staging area"
     echo "with the message \"WIP-<number>\", based on the number of previous WIP-commits."
-    echo "Commit, rebase and amend will temporarily disable any hooks."
+    echo "Commit, rebase and amend will temporarily disable any annoying hooks."
     echo
     echo "     -m <msg>             Appends \": <msg>\" to the commit message"
     echo "     -r | --rebase        Starts an interactive rebase for all latest WIP-commits"
@@ -19,45 +19,42 @@ print_usage() {
     echo "     -h | --help          This usage screen"
 }
 
+# Check if there are any wip commits
+check_wip_count() {
+    if [ $wip_count -lt 1 ]; then
+        echo "There are no WIP-commits! Exiting..."
+        exit 0
+    fi
+}
+
 wip_commit() {
     # Construct commit message
-    commit_msg="WIP-$line_count$@"
-    # Disable hooks for this single command
+    commit_msg="WIP-$wip_count$@"
     git -c core.hooksPath=/dev/null commit -m "$commit_msg"
 }
 
 wip_rebase() {
-    if [ $line_count -gt 1 ]; then
-        # Disable hooks for this single command
-        git -c core.hooksPath=/dev/null rebase HEAD~$line_count --interactive
-    else
-        echo "No WIP-commits found!"
-    fi
+    check_wip_count
+    git -c core.hooksPath=/dev/null rebase HEAD~$(($wip_count + 1)) --interactive
 }
 
 wip_squash() {
-    if [ $line_count -gt 1 ]; then
-        git reset --soft HEAD~$(($line_count-1))
-        git commit --amend
-    else
-        echo "No WIP-commits found!"
-    fi
+    check_wip_count
+    git reset --soft HEAD~$wip_count
+    git commit --amend
 }
 
 wip_amend() {
-    if [ $line_count -gt 1 ]; then
-        git -c core.hooksPath=/dev/null commit --amend
-    else
-        echo "No WIP-commits found!"
-    fi
+    check_wip_count
+    git -c core.hooksPath=/dev/null commit --amend
 }
 
 # Get first 20 subject lines
 subjects=$(git log --pretty=format:"%s" -n 20)
 
-# Match to the first line that does not start with "WIP" (including first non-WIP line)
-# Count the number of lines
-line_count=$(awk '1;/^[^WIP]/{exit}' <(echo "$subjects") | wc -l )
+# Match until the first line that does not start with "WIP" (including first non-WIP line)
+# Count the number of lines, and subtract 1 to get number of WIP-commits
+wip_count=$(($(awk '1;/^[^WIP]/{exit}' <(echo "$subjects") | wc -l ) - 1))
 
 if [ $# -gt 0 ]; then
     case $1 in
@@ -76,7 +73,6 @@ if [ $# -gt 0 ]; then
             ;;
         --help | -h)
             print_usage
-            exit 0
             ;;
         *)
             print_usage
@@ -84,7 +80,7 @@ if [ $# -gt 0 ]; then
             ;;
     esac
 else
-    wip_commit ""
+    wip_commit
 fi
 
 exit 0
